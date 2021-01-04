@@ -8,3 +8,5 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -g3 -fno-omit-frame-pointe
 add_executable(open_hikv_main main.cc
                hikv.h
                hikv.cc)
+
+target_link_libraries(open_hikv_main pmem)

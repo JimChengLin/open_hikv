@@ -1,19 +1,27 @@
+#pragma once
+
+#include <atomic>
 #include <cinttypes>
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace hikv {
+
 enum class ErrorCode : int {
   kOK,
   kOutOfSpace,
+  kNotFound,
 };
 
-// GC and recovery is not supported
+// SimpleLockFreeHash cannot grow dynamically
+// Besides expansion, GC and recovery are not supported
+// One logger serves one hash shard
 class SimpleLogger {
  public:
-  SimpleLogger(const std::string& dir, size_t alloc_chunk_size);
+  SimpleLogger(void* addr, size_t len);
 
   ~SimpleLogger();
 
@@ -23,12 +31,13 @@ class SimpleLogger {
   bool Get(const std::string_view& k, std::string* v) const;
 
  private:
-  const std::string dir_;
-  const size_t kAllocChunkSize;
-  std::vector<void*> addrs_;
+  void* addr_;
+  size_t len_;
+  std::atomic<size_t> curr_offset_{0};
 };
 
 // SimpleLockFreeHash cannot grow dynamically
+// "adds" may fail due to hash collisions
 // I don't know how original HiKV to handle this
 class SimpleLockFreeHash {
  public:
@@ -43,12 +52,29 @@ class SimpleLockFreeHash {
 
   ErrorCode Add(const std::string_view& k, const std::string_view& v);
 
-  ErrorCode Get(const std::string_view& k, std::string* v);
+  ErrorCode Get(const std::string_view& k, std::string* v) const;
 
  private:
   void* addr_;
   size_t len_;
   SimpleLogger* logger_;
+};
+
+class HiKV {
+ public:
+  HiKV(const std::string& path, size_t hash_shard_num = 257);
+
+ public:
+  ErrorCode Add(const std::string_view& k, const std::string_view& v);
+
+  ErrorCode Get(const std::string_view& k, std::string* v) const;
+
+  // TODO: def API
+  ErrorCode Scan();
+
+ private:
+  std::vector<std::unique_ptr<SimpleLogger>> loggers_;
+  std::vector<std::unique_ptr<SimpleLockFreeHash>> hash_maps_;
 };
 
 }  // namespace hikv
