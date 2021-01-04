@@ -14,6 +14,7 @@ enum class ErrorCode : int {
   kOK,
   kOutOfSpace,
   kNotFound,
+  kHashCollision,
   kError,
 };
 
@@ -21,6 +22,7 @@ enum class ErrorCode : int {
 // Besides expansion, GC and recovery are not supported
 // One logger serves one hash shard
 // All ops are lock-free
+// Max size is 2^48 bytes(returned offset only uses 48bit)
 class SimpleLogger {
  public:
   SimpleLogger(void* addr, size_t len);
