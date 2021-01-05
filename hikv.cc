@@ -76,6 +76,16 @@ bool SimpleLogger::Get(uint64_t offset, const std::string_view& k,
   return false;
 }
 
+// The hash map uses two buckets according to the graph in the paper
+SimpleLockFreeHash::SimpleLockFreeHash(void* addr, size_t len,
+                                       SimpleLogger* logger)
+    : addr_(addr), len_(len), logger_(logger) {
+  assert(len % sizeof(HashEntry) == 0);
+  assert(len / sizeof(HashEntry) % 2 == 0);
+}
+
+SimpleLockFreeHash::~SimpleLockFreeHash() { pmem_unmap(addr_, len_); }
+
 void* OpenPMemFileThenInit(const std::string& path, size_t len) {
   size_t mapped_len;
   int is_pmem;

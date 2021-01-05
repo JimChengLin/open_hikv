@@ -53,11 +53,7 @@ class SimpleLockFreeHash {
 
   ~SimpleLockFreeHash();
 
-  struct HashEntry {
-    uint64_t signature;
-    uint64_t offset;
-  };
-
+ public:
   ErrorCode Add(const std::string_view& k, const std::string_view& v);
 
   ErrorCode Get(const std::string_view& k, std::string* v) const;
@@ -66,6 +62,13 @@ class SimpleLockFreeHash {
   void* addr_;
   size_t len_;
   SimpleLogger* logger_;
+
+  struct HashEntry {
+    uint64_t signature;
+    uint64_t offset;
+  };
+
+  std::pair<HashEntry*, HashEntry*> GetTwoBuckets(uint64_t hash);
 };
 
 class HiKV {
