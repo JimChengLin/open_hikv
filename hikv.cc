@@ -89,6 +89,46 @@ SimpleLockFreeHash::SimpleLockFreeHash(void* addr, size_t len,
 
 SimpleLockFreeHash::~SimpleLockFreeHash() { pmem_unmap(addr_, len_); }
 
+ErrorCode SimpleLockFreeHash::Add(const std::string_view& k,
+                                  const std::string_view& v) {
+  // may leak
+  uint64_t offset = logger_->Add(k, v);
+
+  uint64_t hash = std::hash<std::string_view>()(k) | 1;
+  auto [bucket_0, bucket_1] = GetTwoBuckets(hash);
+
+  auto try_install = [&](HashEntry* entry) -> bool {
+    if (entry->signature != 0) {
+      return false;
+    }
+
+    __int128_t old_val{0};
+    HashEntry new_entry;
+    new_entry.signature = hash;
+    new_entry.offset = offset;
+    __int128_t new_val;
+    memcpy(&new_val, &new_entry, sizeof(new_entry));
+
+    bool success = __atomic_compare_exchange_n(
+        reinterpret_cast<__int128_t*>(entry), &old_val, new_val, false,
+        __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    if (success) {
+      pmem_persist(entry, sizeof(new_entry));
+    }
+    return success;
+  };
+
+  if (try_install(bucket_0) || try_install(bucket_1)) {
+    return ErrorCode::kOK;
+  }
+  return ErrorCode::kHashCollision;
+}
+
+ErrorCode SimpleLockFreeHash::Get(const std::string_view& k,
+                                  std::string* v) const {
+  return {};
+}
+
 std::pair<SimpleLockFreeHash::HashEntry*, SimpleLockFreeHash::HashEntry*>
 SimpleLockFreeHash::GetTwoBuckets(uint64_t hash) {
   uint64_t slot_i = hash % slot_num_;
