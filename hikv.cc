@@ -109,9 +109,8 @@ ErrorCode SimpleLockFreeHash::Add(const std::string_view& k,
     __int128_t new_val;
     memcpy(&new_val, &new_entry, sizeof(new_entry));
 
-    bool success = __atomic_compare_exchange_n(
-        reinterpret_cast<__int128_t*>(entry), &old_val, new_val, false,
-        __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    bool success = __sync_bool_compare_and_swap(
+        reinterpret_cast<__int128_t*>(entry), old_val, new_val);
     if (success) {
       pmem_persist(entry, sizeof(new_entry));
     }
