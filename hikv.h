@@ -61,6 +61,7 @@ class SimpleLockFreeHash {
  private:
   void* addr_;
   size_t len_;
+  size_t slot_num_;
   SimpleLogger* logger_;
 
   struct HashEntry {
